@@ -84,14 +84,6 @@ git clone https://github.com/your-username/Inventory-Management.git
 
 ---
 
-## Screenshots
-
-| Dashboard | Inventory | Job Details |
-|-----------|-----------|-------------|
-| ![Dashboard Placeholder] | ![Inventory Placeholder] | ![Job Details Placeholder] |
-
----
-
 ## Contributing
 Contributions are welcome! If you'd like to improve the GST logic, add customer phone number databases, or enhance the PDF layout, feel free to fork the repo and submit a PR.
 
