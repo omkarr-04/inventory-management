@@ -1,6 +1,10 @@
 package com.example.inventory_management
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -14,11 +18,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.inventory_management.ui.theme.InStockGreen
@@ -63,7 +69,7 @@ fun InventoryScreen(
                 },
                 colors = TopAppBarDefaults.largeTopAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
-                )
+                ),
             )
         },
         floatingActionButton = {
@@ -72,15 +78,15 @@ fun InventoryScreen(
                 icon = { Icon(Icons.Default.Add, contentDescription = null) },
                 text = { Text("Add Part") },
                 containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
+                contentColor = MaterialTheme.colorScheme.onPrimary,
             )
-        }
+        },
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .padding(innerPadding)
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
+                .background(MaterialTheme.colorScheme.background),
         ) {
             OutlinedTextField(
                 value = searchQuery,
@@ -101,7 +107,7 @@ fun InventoryScreen(
                 singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
                     unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                    focusedBorderColor = MaterialTheme.colorScheme.primary
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
                 )
             )
 
@@ -129,8 +135,8 @@ fun InventoryScreen(
         if (showAddDialog) {
             AddItemDialog(
                 onDismiss = { showAddDialog = false },
-            ) { name, cat, qty, price, threshold ->
-                viewModel.addItem(name, cat, qty, price, threshold) { success: Boolean, message: String ->
+            ) { name, cat, qty, price, threshold, barcode ->
+                viewModel.addItem(name, cat, qty, price, threshold, barcode) { success: Boolean, message: String ->
                     Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                     if (success) showAddDialog = false
                 }
@@ -283,13 +289,39 @@ fun InventoryItemCard(
 @Composable
 fun AddItemDialog(
     onDismiss: () -> Unit,
-    onConfirm: (String, String, String, String, String) -> Unit
+    onConfirm: (String, String, String, String, String, String?) -> Unit
 ) {
     var name by remember { mutableStateOf("") }
     var category by remember { mutableStateOf("") }
     var quantity by remember { mutableStateOf("") }
     var price by remember { mutableStateOf("") }
     var threshold by remember { mutableStateOf("5") }
+    var barcode by remember { mutableStateOf("") }
+    var showScanner by remember { mutableStateOf(value = false) }
+    
+    val context = LocalContext.current
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) showScanner = true
+        else Toast.makeText(context, "Camera permission required", Toast.LENGTH_SHORT).show()
+    }
+
+    if (showScanner) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            BarcodeScannerView { scannedCode ->
+                barcode = scannedCode
+                showScanner = false
+            }
+            IconButton(
+                onClick = { showScanner = false },
+                modifier = Modifier.align(Alignment.TopEnd).padding(16.dp)
+            ) {
+                Icon(Icons.Default.Close, contentDescription = "Close Scanner", tint = Color.White)
+            }
+        }
+        return
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -301,9 +333,30 @@ fun AddItemDialog(
                 OutlinedTextField(value = quantity, onValueChange = { quantity = it }, label = { Text("Quantity") }, singleLine = true)
                 OutlinedTextField(value = price, onValueChange = { price = it }, label = { Text("Price (₹)") }, singleLine = true)
                 OutlinedTextField(value = threshold, onValueChange = { threshold = it }, label = { Text("Low Stock Alert at") }, singleLine = true)
+                
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = barcode,
+                        onValueChange = { barcode = it },
+                        label = { Text("Barcode (Optional)") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(
+                        onClick = {
+                            when (PackageManager.PERMISSION_GRANTED) {
+                                ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) -> showScanner = true
+                                else -> cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                            }
+                        },
+                        modifier = Modifier.padding(top = 4.dp)
+                    ) {
+                        Icon(Icons.Default.QrCodeScanner, contentDescription = "Scan Barcode", tint = MaterialTheme.colorScheme.primary)
+                    }
+                }
             }
         },
-        confirmButton = { Button(onClick = { onConfirm(name, category, quantity, price, threshold) }) { Text("Add") } },
+        confirmButton = { Button(onClick = { onConfirm(name, category, quantity, price, threshold, barcode) }) { Text("Add") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }

@@ -56,6 +56,13 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.work.runtime.ktx)
 
+    // CameraX & ML Kit
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.view)
+    implementation(libs.barcode.scanning)
+    implementation(libs.guava)
+
     // Room Database (Keeping it for now, but transitioning to Firestore)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
@@ -72,4 +79,13 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+
+    constraints {
+        implementation(libs.androidx.concurrent.futures) {
+            because("conflict with unit test")
+        }
+        implementation(libs.androidx.concurrent.futures.ktx) {
+            because("conflict with unit test")
+        }
+    }
 }

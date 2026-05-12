@@ -1,6 +1,10 @@
 package com.example.inventory_management
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -9,6 +13,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,6 +23,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 
@@ -25,7 +31,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 @Composable
 fun JobCardScreen(
     onJobSaved: () -> Unit,
-    viewModel: JobViewModel = viewModel()
+    viewModel: JobViewModel = viewModel(),
 ) {
     val context = LocalContext.current
     val availableParts by viewModel.availableParts.collectAsStateWithLifecycle()
@@ -43,19 +49,56 @@ fun JobCardScreen(
     val gstAmount = subtotalWithLabor * ((gstPercentage.toDoubleOrNull() ?: 0.0) / 100.0)
     val totalAmount = subtotalWithLabor + gstAmount
     
-    var showPartDialog by remember { mutableStateOf(false) }
+    var showPartDialog by remember { mutableStateOf(value = false) }
+    var showScanner by remember { mutableStateOf(value = false) }
+    var scannedItem by remember { mutableStateOf<InventoryItem?>(null) }
+    var showQuantityDialog by remember { mutableStateOf(value = false) }
+    var showNotFoundDialog by remember { mutableStateOf(value = false) }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { isGranted ->
+        if (isGranted) {
+            showScanner = true
+        } else {
+            Toast.makeText(context, "Camera permission denied", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    if (showScanner) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            BarcodeScannerView { barcode ->
+                showScanner = false
+                viewModel.findItemByBarcode(barcode) { item ->
+                    if (item != null) {
+                        scannedItem = item
+                        showQuantityDialog = true
+                    } else {
+                        showNotFoundDialog = true
+                    }
+                }
+            }
+            IconButton(
+                onClick = { showScanner = false },
+                modifier = Modifier.align(Alignment.TopEnd).padding(16.dp),
+            ) {
+                Icon(Icons.Default.Delete, contentDescription = "Close", tint = Color.White)
+            }
+        }
+        return
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(title = { Text("Create Job Card") })
-        }
+        },
     ) { padding ->
         Column(
             modifier = Modifier
                 .padding(padding)
                 .padding(16.dp)
                 .fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 item {
@@ -87,14 +130,30 @@ fun JobCardScreen(
                 item {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Parts Used", style = MaterialTheme.typography.titleMedium)
+                        Text("Parts Used", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                        OutlinedButton(
+                            onClick = {
+                                when (PackageManager.PERMISSION_GRANTED) {
+                                    ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) -> {
+                                        showScanner = true
+                                    }
+                                    else -> {
+                                        cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                                    }
+                                }
+                            }
+                        ) {
+                            Icon(Icons.Default.QrCodeScanner, contentDescription = null)
+                            Spacer(Modifier.width(4.dp))
+                            Text("Scan")
+                        }
                         Button(onClick = { showPartDialog = true }) {
                             Icon(Icons.Default.Add, contentDescription = null)
                             Spacer(Modifier.width(4.dp))
-                            Text("Add Part")
+                            Text("Add")
                         }
                     }
                 }
@@ -122,7 +181,7 @@ fun JobCardScreen(
                 }
 
                 item {
-                    Divider(modifier = Modifier.padding(vertical = 8.dp))
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                     Text("Charges & Tax", style = MaterialTheme.typography.titleMedium)
                 }
 
@@ -157,7 +216,7 @@ fun JobCardScreen(
                             SummaryLine("Parts Subtotal", partsSubtotal)
                             SummaryLine("Labor Charge", laborCharge.toDoubleOrNull() ?: 0.0)
                             SummaryLine("GST Amount", gstAmount)
-                            Divider()
+                            HorizontalDivider()
                             Text(
                                 text = "Total Bill: ${CurrencyUtils.formatCurrency(totalAmount)}",
                                 style = MaterialTheme.typography.titleLarge,
@@ -209,14 +268,65 @@ fun JobCardScreen(
         SelectPartDialog(
             parts = availableParts,
             onDismiss = { showPartDialog = false },
-            onPartSelected = { item, qty ->
-                viewModel.addPartToJob(item, qty) { success, message ->
-                    if (!success) {
-                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-                    } else {
-                        showPartDialog = false
-                    }
+        ) { item, qty ->
+            viewModel.addPartToJob(item, qty) { success, message ->
+                if (!success) {
+                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                } else {
+                    showPartDialog = false
                 }
+            }
+        }
+    }
+
+    if (showQuantityDialog && (scannedItem != null)) {
+        var qtyInput by remember { mutableStateOf("1") }
+        AlertDialog(
+            onDismissRequest = { showQuantityDialog = false },
+            title = { Text("Enter Quantity") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Item: ${scannedItem?.name}")
+                    Text("Available: ${scannedItem?.quantity}", style = MaterialTheme.typography.bodySmall)
+                    OutlinedTextField(
+                        value = qtyInput,
+                        onValueChange = { qtyInput = it },
+                        label = { Text("Quantity") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val q = qtyInput.toIntOrNull() ?: 0
+                        if (q > 0) {
+                            viewModel.addPartToJob(scannedItem!!, q) { success, msg ->
+                                if (success) {
+                                    showQuantityDialog = false
+                                    scannedItem = null
+                                } else {
+                                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                    },
+                ) { Text("Add to Job") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showQuantityDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (showNotFoundDialog) {
+        AlertDialog(
+            onDismissRequest = { showNotFoundDialog = false },
+            title = { Text("Item Not Found") },
+            text = { Text("This barcode is not registered in inventory. Add it manually first?") },
+            confirmButton = {
+                Button(onClick = { showNotFoundDialog = false }) { Text("OK") }
             }
         )
     }
@@ -276,14 +386,16 @@ fun SelectPartDialog(
             }
         },
         confirmButton = {
-            Button(onClick = {
-                selectedPart?.let { 
-                    val q = quantity.toIntOrNull() ?: 0
-                    if (q > 0) {
-                        onPartSelected(it, q)
+            Button(
+                onClick = {
+                    selectedPart?.let { 
+                        val q = quantity.toIntOrNull() ?: 0
+                        if (q > 0) {
+                            onPartSelected(it, q)
+                        }
                     }
-                }
-            }) {
+                },
+            ) {
                 Text("Add")
             }
         },

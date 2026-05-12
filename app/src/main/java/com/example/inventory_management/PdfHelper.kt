@@ -3,7 +3,6 @@ package com.example.inventory_management
 import android.content.Context
 import android.content.Intent
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
@@ -68,8 +67,8 @@ object PdfHelper {
         for (part in job.partsUsed) {
             canvas.drawText(part.partName, margin, y, paint)
             canvas.drawText(part.quantityUsed.toString(), 300f, y, paint)
-            canvas.drawText(String.format("%.2f", part.priceAtTime), 400f, y, paint)
-            canvas.drawText(String.format("%.2f", part.quantityUsed * part.priceAtTime), 500f, y, paint)
+            canvas.drawText(String.format(Locale.US, "%.2f", part.priceAtTime), 400f, y, paint)
+            canvas.drawText(String.format(Locale.US, "%.2f", part.quantityUsed * part.priceAtTime), 500f, y, paint)
             y += 20f
         }
 
@@ -80,17 +79,17 @@ object PdfHelper {
         // Summary
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         canvas.drawText("Labor Charge:", 350f, y, paint)
-        canvas.drawText(String.format("%.2f", job.laborCharge), 500f, y, paint)
+        canvas.drawText(String.format(Locale.US, "%.2f", job.laborCharge), 500f, y, paint)
         y += 20f
         canvas.drawText("GST (${job.gstPercentage}%):", 350f, y, paint)
         val subtotal = job.partsUsed.sumOf { it.priceAtTime * it.quantityUsed } + job.laborCharge
         val gstAmount = subtotal * (job.gstPercentage / 100.0)
-        canvas.drawText(String.format("%.2f", gstAmount), 500f, y, paint)
+        canvas.drawText(String.format(Locale.US, "%.2f", gstAmount), 500f, y, paint)
         y += 25f
         
         paint.textSize = 16f
         canvas.drawText("TOTAL AMOUNT:", 350f, y, paint)
-        canvas.drawText("₹${String.format("%.2f", job.totalAmount)}", 480f, y, paint)
+        canvas.drawText("₹${String.format(Locale.US, "%.2f", job.totalAmount)}", 480f, y, paint)
         
         y += 40f
         paint.textSize = 10f

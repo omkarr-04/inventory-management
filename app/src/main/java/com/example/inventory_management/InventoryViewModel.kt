@@ -39,7 +39,8 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
         quantityStr: String,
         priceStr: String,
         thresholdStr: String,
-        onResult: (Boolean, String) -> Unit
+        barcode: String?,
+        onResult: (Boolean, String) -> Unit,
     ) {
         if (name.isBlank() || category.isBlank() || quantityStr.isBlank() || priceStr.isBlank()) {
             onResult(false, "Please fill in all fields")
@@ -50,12 +51,12 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
         val price = priceStr.toDoubleOrNull()
         val threshold = thresholdStr.toIntOrNull() ?: 5
 
-        if (quantity == null || quantity < 0) {
+        if ((quantity == null) || (quantity < 0)) {
             onResult(false, "Invalid quantity")
             return
         }
 
-        if (price == null || price < 0) {
+        if ((price == null) || (price < 0)) {
             onResult(false, "Invalid price")
             return
         }
@@ -65,7 +66,8 @@ class InventoryViewModel(application: Application) : AndroidViewModel(applicatio
             category = category,
             quantity = quantity,
             price = price,
-            lowStockThreshold = threshold
+            lowStockThreshold = threshold,
+            barcode = barcode.takeIf { it?.isNotBlank() == true },
         )
 
         viewModelScope.launch {

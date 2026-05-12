@@ -118,7 +118,7 @@ fun StatCard(title: String, value: String, icon: ImageVector, color: Color, onCl
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.Start
+            horizontalAlignment = Alignment.Start,
         ) {
             Icon(imageVector = icon, contentDescription = null, tint = color)
             Spacer(modifier = Modifier.height(8.dp))

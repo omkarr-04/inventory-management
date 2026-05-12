@@ -58,6 +58,13 @@ class JobViewModel : ViewModel() {
         _selectedParts.value = _selectedParts.value.filter { it.partId != usedPart.partId }
     }
 
+    fun findItemByBarcode(barcode: String, onResult: (InventoryItem?) -> Unit) {
+        viewModelScope.launch {
+            val item = inventoryRepository.getItemByBarcode(barcode)
+            onResult(item)
+        }
+    }
+
     fun submitJob(
         vehicleNumber: String,
         customerName: String,

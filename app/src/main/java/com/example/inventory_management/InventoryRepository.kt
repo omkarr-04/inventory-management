@@ -31,4 +31,10 @@ class InventoryRepository {
     suspend fun updateQuantity(itemId: String, newQuantity: Int) {
         itemsCollection.document(itemId).update("quantity", newQuantity).await()
     }
+
+    // SEARCH: Find item by barcode
+    suspend fun getItemByBarcode(barcode: String): InventoryItem? {
+        val snapshot = itemsCollection.whereEqualTo("barcode", barcode).limit(1).get().await()
+        return snapshot.documents.firstOrNull()?.toObject(InventoryItem::class.java)
+    }
 }
